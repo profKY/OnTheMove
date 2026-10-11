@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>On the Move – Short Clicking Game</title>
+<style>
+  :root{
+    --bg:#14262b; --bg2:#1c353b; --ink:#f4efe4; --muted:#a9b9b6;
+    --card-back:#e9dcc0; --card-back-ink:#5a4a2a; --accent:#f2b84b; --accent-ink:#2b2008;
+    --paper:#fbf7ee; --paper-ink:#23282a; --line:#d8cdb2;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    background: radial-gradient(1200px 700px at 20% -10%, #25474f 0%, transparent 60%), var(--bg);
+    color:var(--ink); display:flex; flex-direction:column; min-height:100vh;
+  }
+  header{padding:18px 28px 6px; display:flex; flex-wrap:wrap; gap:12px 24px; align-items:flex-end; justify-content:space-between}
+  h1{margin:0; font-family:Georgia,"Times New Roman",serif; font-weight:700; font-size:clamp(22px,3.2vw,40px); letter-spacing:.2px}
+  h1 small{display:block; font-family:"Segoe UI",Arial,sans-serif; font-weight:400; font-size:clamp(13px,1.4vw,18px); color:var(--muted); margin-top:4px}
+  .tools{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+  button{font:inherit; cursor:pointer}
+  .btn{background:transparent; color:var(--ink); border:1.5px solid #4b6a70; border-radius:999px; padding:8px 16px; font-size:14px}
+  .btn:hover{background:#264349}
+  .btn.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:700}
+  .btn.primary:hover{filter:brightness(1.06)}
+  .counter{color:var(--muted); font-size:14px; padding:0 6px}
+
+  main{flex:1; padding:10px 28px 24px; display:flex; align-items:center; justify-content:center}
+  .grid{
+    width:100%; max-width:1000px; display:grid; gap:clamp(8px,1.2vw,16px);
+    grid-template-columns:repeat(4,1fr);
+  }
+  .card{
+    position:relative; aspect-ratio: 4/3; perspective:900px; border:0; background:none; padding:0; color:inherit;
+  }
+  .card .inner{position:absolute; inset:0; transform-style:preserve-3d; transition:transform .55s cubic-bezier(.3,.7,.2,1)}
+  .card.up .inner{transform:rotateY(180deg)}
+  .face{position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden; border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:8px; overflow:hidden}
+  .back{
+    background:
+      repeating-linear-gradient(135deg, rgba(90,74,42,.07) 0 10px, transparent 10px 20px),
+      var(--card-back);
+    color:var(--card-back-ink); box-shadow:0 4px 0 #b9a77c, 0 8px 18px rgba(0,0,0,.35);
+    border:2px solid #fff6dc55;
+  }
+  .back .num{font-family:Georgia,serif; font-size:clamp(26px,4vw,52px); font-weight:700; line-height:1}
+  .back svg{width:34%; max-width:60px; opacity:.55; margin-bottom:4px}
+  .card:not(.done):hover .back{transform:translateY(-3px); transition:transform .15s}
+  .card:focus-visible{outline:3px solid var(--accent); outline-offset:3px; border-radius:16px}
+  .front{transform:rotateY(180deg); background:var(--paper); color:var(--paper-ink); box-shadow:0 8px 18px rgba(0,0,0,.35); border-top:8px solid var(--c, #888)}
+  .front .name{font-family:Georgia,serif; font-weight:700; font-size:clamp(16px,2.2vw,30px); line-height:1.1}
+  .front .story{margin-top:8px; line-height:1.2; max-width:92%; font-size:clamp(11px,1.15vw,15px); padding:3px 10px; border-radius:999px; background:var(--c,#888); color:#fff; font-weight:600}
+  .front.joker{background:linear-gradient(160deg,#ffe08a,#f2b84b); border-top-color:#b7791f}
+  .front.joker .name{font-size:clamp(18px,2.6vw,34px)}
+  .front.joker .sub{font-size:clamp(11px,1.15vw,15px); margin-top:4px}
+  .card.done{pointer-events:none}
+  .card.done .inner{transform:none}
+  .card.done .back{opacity:.12; box-shadow:none}
+  .card.done .back *{opacity:.0}
+
+  /* Overlay */
+  .overlay{position:fixed; inset:0; background:rgba(8,16,18,.78); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; padding:20px; z-index:10; overflow:auto}
+  .overlay.show{display:flex; animation:fade .25s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .panel{width:min(1100px,100%); background:var(--paper); color:var(--paper-ink); border-radius:20px; box-shadow:0 24px 60px rgba(0,0,0,.5); overflow:hidden}
+  .duel{display:grid; grid-template-columns:1fr auto 1fr; align-items:stretch; gap:0; background:var(--bg2); color:var(--ink)}
+  .who{padding:22px 24px; text-align:center; border-top:8px solid var(--c,#888); display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:140px}
+  .who .name{font-family:Georgia,serif; font-weight:700; font-size:clamp(24px,3.4vw,44px); line-height:1.05}
+  .who .story{margin-top:10px; padding:4px 14px; border-radius:999px; background:var(--c,#888); color:#fff; font-weight:600; font-size:clamp(13px,1.4vw,18px)}
+  .who.joker{border-top-color:var(--accent)}
+  .who select{font:inherit; font-size:16px; padding:10px 12px; border-radius:10px; border:2px solid var(--accent); background:#fffbe9; color:#2b2008; max-width:100%}
+  .who .hint{margin-top:8px; font-size:13px; color:var(--muted)}
+  .vs{display:flex; align-items:center; padding:0 6px; font-family:Georgia,serif; font-style:italic; font-size:26px; color:var(--accent)}
+  .task{padding:24px 30px 8px}
+  .aspect-label{display:inline-block; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:#7a6a45; font-weight:700}
+  .aspect-title{font-family:Georgia,serif; font-size:clamp(24px,3vw,38px); font-weight:700; margin:4px 0 8px}
+  .aspect-q{font-size:clamp(17px,1.9vw,23px); line-height:1.4; margin:0}
+  .starters{margin:18px 0 6px; padding:14px 16px; background:#f1e9d4; border-radius:12px; border:1px dashed var(--line)}
+  .starters b{font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:#7a6a45}
+  .starters ul{margin:6px 0 0; padding-left:20px; columns:2; column-gap:30px; font-size:16px; line-height:1.55}
+  .actions{display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:center; padding:14px 30px 24px}
+  .actions .left,.actions .right{display:flex; gap:10px; flex-wrap:wrap}
+  .btn.dark{color:var(--paper-ink); border-color:#b9ad8c}
+  .btn.dark:hover{background:#efe6cf}
+
+  .end{display:none; text-align:center; position:fixed; inset:0; z-index:20; background:rgba(8,16,18,.85); align-items:center; justify-content:center}
+  .end.show{display:flex}
+  .end .box{background:var(--paper); color:var(--paper-ink); padding:36px 44px; border-radius:20px; max-width:480px}
+  .end h2{font-family:Georgia,serif; margin:0 0 8px; font-size:34px}
+
+  @media (max-width:820px){
+    .grid{grid-template-columns:repeat(3,1fr)}
+    main{padding:8px 14px 20px}
+    header{padding:14px 14px 4px}
+    .duel{grid-template-columns:1fr}
+    .vs{justify-content:center; padding:2px 0}
+    .starters ul{columns:1}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .card .inner{transition:none} .overlay.show{animation:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>On the Move. Cross-cultural Encounters
+    <small>Arrival (film) · Loose Change · Green · The Thing Around Your Neck · The Soldier's Tale<br>Flip two cards, then compare the two characters with a view to the topic.</small>
+  </h1>
+  <div class="tools">
+    <span class="counter" id="counter"></span>
+    <button class="btn" id="btnAspects" title="Choose which comparison aspects can appear">Aspects</button>
+    <button class="btn" id="btnShuffle" title="Shuffle the cards and start again">Shuffle &amp; restart</button>
+    <button class="btn" id="btnRestart" title="Turn all cards face down again, same order">Restart</button>
+  </div>
+</header>
+
+<main><div class="grid" id="grid"></div></main>
+
+<!-- Comparison panel -->
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="aspectTitle">
+  <div class="panel">
+    <div class="duel" id="duel"></div>
+    <div class="task">
+      <span class="aspect-label">Compare the two characters with regard to …</span>
+      <div class="aspect-title" id="aspectTitle"></div>
+      <p class="aspect-q" id="aspectQ"></p>
+      <div class="starters">
+        <b>Useful phrases</b>
+        <ul>
+          <li>Both … , because …</li>
+          <li>While … , … on the other hand …</li>
+          <li>In contrast to … , … </li>
+          <li>… is similar to … in that …</li>
+          <li>This shows that … / This suggests that …</li>
+          <li>In my opinion, … because the text says …</li>
+        </ul>
+      </div>
+    </div>
+    <div class="actions">
+      <div class="left">
+        <button class="btn dark" id="btnNext">↻ Another aspect</button>
+      </div>
+      <div class="right">
+        <button class="btn dark" id="btnBack">Flip cards back</button>
+        <button class="btn primary" id="btnDone">Done – remove cards ✓</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Aspect chooser -->
+<div class="overlay" id="aspectOverlay" role="dialog" aria-modal="true">
+  <div class="panel" style="max-width:640px">
+    <div class="task" style="padding-bottom:6px">
+      <div class="aspect-title" style="font-size:28px">Comparison aspects</div>
+      <p style="margin:0 0 10px;color:#5a5f60">Tick the aspects that may come up during the game.</p>
+      <div id="aspectList" style="display:grid;gap:8px"></div>
+    </div>
+    <div class="actions"><div></div><div class="right"><button class="btn primary" id="btnAspectsOk">OK</button></div></div>
+  </div>
+</div>
+
+<!-- End -->
+<div class="end" id="end"><div class="box">
+  <h2>All cards played!</h2>
+  <p>Great work – every pair has been compared.</p>
+  <button class="btn primary" id="btnAgain">Play again</button>
+</div></div>
+
+<script>
+/* ---------- DATA (edit here) ---------- */
+// Order = same layout as the PowerPoint slide (6 columns × 4 rows). null = Joker.
+const J = null;
+const CHARACTERS = [
+  {name:"Laylor",   story:"Loose Change"}, {name:"Narrator", story:"Green"}, {name:"Louise", story:"Arrival"}, {name:"Salim", story:"Soldier's Tale"},
+  J, {name:"Akkuna", story:"The Thing Around Your Neck"}, {name:"Narrator", story:"Soldier's Tale"}, {name:"Ian", story:"Arrival"},
+  {name:"Mother", story:"Green"}, {name:"Narrator", story:"Loose Change"}, {name:"Boyfriend", story:"The Thing Around Your Neck"}, {name:"Heptapods", story:"Arrival"}
+];
+
+const ASPECTS = [
+  {t:"Reasons for migration",           q:"Why is each character on the move – or why does each one stay, receive or meet others? What pushes or pulls them?"},
+  {t:"Response to a different culture", q:"How does each character react to meeting an unfamiliar culture, language or way of life?"},
+  {t:"Coping strategies",               q:"How does each character cope with problems, uncertainty and setbacks they face?"},
+  {t:"Identity and belonging",          q:"How does the encounter influence each character's identity and sense of belonging or home?"},
+  {t:"Relationships and support",       q:"Who or what supports – or fails to support – each character (family, partner, community, strangers)?"},
+  {t:"Language and communication",      q:"What role do language and communication (or the lack of it) play for each character in the encounter?"},
+  {t:"Attitudes towards the 'other'",   q:"How open, curious, hesitant or prejudiced is each character towards people who are different from them?"},
+  {t:"Expectations and reality",        q:"What does each character hope for or expect – and how do these expectations hold up?"}
+];
+/* -------------------------------------- */
+
+const STORY_HUE = {};
+[...new Set(CHARACTERS.filter(Boolean).map(c=>c.story))].forEach((s,i,a)=>{ STORY_HUE[s] = Math.round(360*i/a.length + 10) % 360; });
+const colorOf = s => `hsl(${STORY_HUE[s]} 52% 38%)`;
+
+const $ = id => document.getElementById(id);
+let order, state, flipped, activeAspects, lastAspect, joker1, joker2;
+activeAspects = new Set(ASPECTS.map((_,i)=>i));
+
+function newGame(shuffle){
+  order = CHARACTERS.map((_,i)=>i);
+  if(shuffle){ for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];} }
+  state = CHARACTERS.map(()=> "down");   // indexed by character slot
+  flipped = []; lastAspect = -1;
+  $("end").classList.remove("show"); closePanel();
+  build();
+}
+
+function build(){
+  const grid = $("grid"); grid.innerHTML = "";
+  order.forEach((slot,pos)=>{
+    const c = CHARACTERS[slot];
+    const b = document.createElement("button");
+    b.className = "card"; b.dataset.slot = slot;
+    b.setAttribute("aria-label", "Card " + (pos+1));
+    b.innerHTML = `
+      <div class="inner">
+        <div class="face back">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="24" cy="24" r="19"/><path d="M30.5 17.5 27 27l-9.5 3.5L21 21z"/></svg>
+          <div class="num">${pos+1}</div>
+        </div>
+        ${c ? `<div class="face front" style="--c:${colorOf(c.story)}"><div class="name">${c.name}</div><div class="story">${c.story}</div></div>`
+            : `<div class="face front joker"><div class="name">★ Joker</div><div class="sub">choose your own character</div></div>`}
+      </div>`;
+    b.addEventListener("click", ()=>onCard(slot,b));
+    grid.appendChild(b);
+  });
+  updateCounter();
+}
+
+function cardEl(slot){ return document.querySelector(`.card[data-slot="${slot}"]`); }
+
+function onCard(slot){
+  if(state[slot]!=="down" || flipped.length>=2) return;
+  state[slot]="up"; flipped.push(slot); cardEl(slot).classList.add("up");
+  if(flipped.length===2) setTimeout(openPanel, 900);
+}
+
+function whoHTML(slot, which){
+  const c = CHARACTERS[slot];
+  if(c) return `<div class="who" style="--c:${colorOf(c.story)}"><div class="name">${c.name}</div><div class="story">${c.story}</div></div>`;
+  const opts = CHARACTERS.map((x,i)=>x?{x,i}:null).filter(Boolean)
+    .filter(o=>!flipped.includes(o.i))
+    .map(o=>`<option value="${o.i}">${o.x.name} (${o.x.story})</option>`).join("");
+  const sel = which===0 ? joker1 : joker2;
+  if(sel!=null){ const x = CHARACTERS[sel];
+    return `<div class="who joker" style="--c:${colorOf(x.story)}"><div class="name">${x.name}</div><div class="story">${x.story}</div><div class="hint">★ Joker choice – <a href="#" data-reset="${which}" style="color:var(--accent)">change</a></div></div>`; }
+  return `<div class="who joker"><div class="name" style="color:var(--accent);margin-bottom:10px">★ Joker</div>
+    <select data-joker="${which}"><option value="">Choose any character …</option>${opts}</select>
+    <div class="hint">Pick the character you want to compare.</div></div>`;
+}
+
+function renderDuel(){
+  const [a,b] = flipped;
+  $("duel").innerHTML = whoHTML(a,0) + `<div class="vs">vs.</div>` + whoHTML(b,1);
+  document.querySelectorAll("#duel select").forEach(s=>s.addEventListener("change",e=>{
+    const v = e.target.value===""?null:+e.target.value;
+    if(e.target.dataset.joker==="0") joker1=v; else joker2=v; renderDuel();
+  }));
+  document.querySelectorAll("#duel a[data-reset]").forEach(l=>l.addEventListener("click",e=>{
+    e.preventDefault(); if(l.dataset.reset==="0") joker1=null; else joker2=null; renderDuel();
+  }));
+}
+
+function pickAspect(){
+  const pool = [...activeAspects].filter(i=>i!==lastAspect);
+  const list = pool.length?pool:[...activeAspects];
+  lastAspect = list[Math.floor(Math.random()*list.length)];
+  $("aspectTitle").textContent = ASPECTS[lastAspect].t;
+  $("aspectQ").textContent = ASPECTS[lastAspect].q;
+}
+
+function openPanel(){
+  joker1 = joker2 = null;
+  renderDuel(); pickAspect();
+  $("overlay").classList.add("show"); $("btnDone").focus();
+}
+function closePanel(){ $("overlay").classList.remove("show"); }
+
+function flipBack(){
+  flipped.forEach(s=>{ state[s]="down"; cardEl(s).classList.remove("up"); });
+  flipped = []; closePanel();
+}
+function done(){
+  flipped.forEach(s=>{ state[s]="done"; const el=cardEl(s); el.classList.remove("up"); el.classList.add("done"); el.setAttribute("aria-hidden","true"); el.tabIndex=-1; });
+  flipped = []; closePanel(); updateCounter();
+  if(state.filter(s=>s==="down").length < 2) setTimeout(()=>$("end").classList.add("show"), 500);
+}
+function updateCounter(){
+  const left = state.filter(s=>s!=="done").length;
+  $("counter").textContent = left + " of " + state.length + " cards left";
+}
+
+/* aspect chooser */
+function buildAspectList(){
+  $("aspectList").innerHTML = ASPECTS.map((a,i)=>
+    `<label style="display:flex;gap:10px;align-items:flex-start;font-size:16px;cursor:pointer"><input type="checkbox" data-i="${i}" ${activeAspects.has(i)?"checked":""} style="margin-top:5px;width:18px;height:18px"><span><b>${a.t}</b><br><span style="color:#5a5f60;font-size:14px">${a.q}</span></span></label>`).join("");
+}
+
+$("btnNext").onclick = pickAspect;
+$("btnBack").onclick = flipBack;
+$("btnDone").onclick = done;
+$("btnShuffle").onclick = ()=>newGame(true);
+$("btnRestart").onclick = ()=>newGame(false);
+$("btnAgain").onclick = ()=>newGame(true);
+$("btnAspects").onclick = ()=>{ buildAspectList(); $("aspectOverlay").classList.add("show"); };
+$("btnAspectsOk").onclick = ()=>{
+  const s = new Set([...document.querySelectorAll("#aspectList input:checked")].map(i=>+i.dataset.i));
+  if(s.size) activeAspects = s;
+  $("aspectOverlay").classList.remove("show");
+};
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){
+    if($("aspectOverlay").classList.contains("show")) $("aspectOverlay").classList.remove("show");
+    else if($("overlay").classList.contains("show")) flipBack();
+  }
+});
+
+newGame(false);
+</script>
+</body>
+</html>
